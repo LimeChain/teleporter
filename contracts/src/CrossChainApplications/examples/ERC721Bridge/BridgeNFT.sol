@@ -1,0 +1,65 @@
+// (c) 2023, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// SPDX-License-Identifier: Ecosystem
+
+pragma solidity 0.8.18;
+
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+
+/**
+ * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
+ * DO NOT USE THIS CODE IN PRODUCTION.
+ */
+
+/**
+ * @dev BridgeNFT is an ERC721 token contract that is associated with a specific native chain bridge and asset, and is only mintable by the bridge contract on this chain.
+ */
+contract BridgeNFT is ERC721, ERC721Burnable {
+    address public immutable bridgeContract;
+    bytes32 public immutable nativeBlockchainID;
+    address public immutable nativeBridge;
+    address public immutable nativeAsset;
+    string public baseTokenUri = "https://example.com/ipfs/";
+
+    /**
+     * @dev Initializes a BridgeNFT instance.
+     */
+    constructor(
+        bytes32 sourceBlockchainID,
+        address sourceBridge,
+        address sourceAsset,
+        string memory tokenName,
+        string memory tokenSymbol
+    ) ERC721(tokenName, tokenSymbol) {
+        bridgeContract = msg.sender;
+        nativeBlockchainID = sourceBlockchainID;
+        nativeBridge = sourceBridge;
+        nativeAsset = sourceAsset;
+    }
+
+    /**
+     * @dev Mints tokens to `account` if called by original `bridgeContract`.
+     */
+    function mint(address account, uint256 tokenId) external {
+        require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
+        _mint(account, tokenId);
+    }
+
+    /**
+     * @dev Transfers NFT to another account if called by original `bridgeContract`.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public virtual override {
+        require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return baseTokenUri;
+    }
+}

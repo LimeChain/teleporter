@@ -1,0 +1,86 @@
+// (c) 2023, Ava Labs, Inc. All rights reserved.
+// See the file LICENSE for licensing terms.
+
+// SPDX-License-Identifier: Ecosystem
+
+pragma solidity 0.8.18;
+
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
+/**
+ * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
+ * DO NOT USE THIS CODE IN PRODUCTION.
+ */
+
+/**
+ * @dev Interface that describes functionalities for a cross-chain ERC20 bridge.
+ */
+interface IERC721Bridge {
+    /**
+     * @dev Enum representing the action to take on receiving a Teleporter message.
+     */
+    enum BridgeAction {
+        Create,
+        Mint,
+        Transfer
+    }
+
+    /**
+     * @dev Emitted when tokens are locked in this bridge contract to be bridged to another chain.
+     */
+    event BridgedNFT(
+        address indexed tokenContractAddress,
+        bytes32 indexed destinationBlockchainID,
+        bytes32 indexed teleporterMessageID,
+        address destinationBridgeAddress,
+        address recipient,
+        uint256 tokenId
+    );
+
+    /**
+     * @dev Emitted when submitting a request to create a new bridge token on another chain.
+     */
+    event SubmitCreateBridgeNFT(
+        bytes32 indexed destinationBlockchainID,
+        address indexed destinationBridgeAddress,
+        address indexed nativeContractAddress,
+        bytes32 teleporterMessageID
+    );
+
+    /**
+     * @dev Emitted when creating a new bridge token.
+     */
+    event CreateBridgeNFT(
+        bytes32 indexed nativeBlockchainID,
+        address indexed nativeBridgeAddress,
+        address indexed nativeContractAddress,
+        address bridgeTokenAddress
+    );
+
+    /**
+     * @dev Emitted when minting bridge tokens.
+     */
+    event MintBridgeNFT(address indexed contractAddress, address recipient, uint256 tokenId);
+
+    /**
+     * @dev Transfers ERC20 tokens to another chain.
+     *
+     * This can be wrapping, unwrapping, and transferring a wrapped token between two non-native chains.
+     */
+    function bridgeERC721(
+        bytes32 destinationBlockchainID,
+        address destinationBridgeAddress,
+        address tokenContractAddress,
+        address recipient,
+        uint256 tokenId
+    ) external;
+
+    /**
+     * @dev Creates a new bridge token on another chain.
+     */
+    function submitCreateBridgeERC721(
+        bytes32 destinationBlockchainID,
+        address destinationBridgeAddress,
+        ERC721 nativeToken
+    ) external;
+}
