@@ -244,6 +244,8 @@ func SubmitCreateBridgeERC721(
 		destinationBlockchainID,
 		destinationBridgeAddress,
 		nativeToken,
+		common.HexToAddress("0x0"),
+		big.NewInt(0),
 	)
 	Expect(err).Should(BeNil())
 
@@ -285,6 +287,8 @@ func bridgeERC721(
 		token,
 		fundedAddress,
 		tokenId,
+		common.HexToAddress("0x0"),
+		big.NewInt(0),
 	)
 	Expect(err).Should(BeNil())
 

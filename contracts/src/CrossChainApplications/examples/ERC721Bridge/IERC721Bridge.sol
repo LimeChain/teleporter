@@ -72,7 +72,9 @@ interface IERC721Bridge {
         address destinationBridgeAddress,
         address tokenContractAddress,
         address recipient,
-        uint256 tokenId
+        uint256 tokenId,
+        address feeTokenAddress,
+        uint256 feeAmount
     ) external;
 
     /**
@@ -81,6 +83,8 @@ interface IERC721Bridge {
     function submitCreateBridgeERC721(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
-        ERC721 nativeToken
+        ERC721 nativeContract,
+        address feeTokenAddress,
+        uint256 feeAmount
     ) external;
 }

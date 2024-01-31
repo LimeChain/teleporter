@@ -108,7 +108,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: 1
+            tokenId: 1,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -121,7 +123,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: address(0),
             nftContractAddress: address(mockERC721),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: 1
+            tokenId: 1,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -134,7 +138,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(0),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: 1
+            tokenId: 1,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -147,7 +153,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
             recipient: address(0),
-            tokenId: 1
+            tokenId: 1,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -160,7 +168,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: 1
+            tokenId: 1,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -190,7 +200,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: tokenId
+            tokenId: tokenId,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -214,7 +226,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: tokenId
+            tokenId: tokenId,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 
@@ -360,7 +374,9 @@ contract ERC721BridgeTest is Test {
             _DEFAULT_OTHER_BRIDGE_ADDRESS,
             bridgeTokenAddress,
             _DEFAULT_RECIPIENT,
-            tokenId
+            tokenId,
+            address(0),
+            0
         );
 
         // bytes memory transferMessage = erc721Bridge.encodeTransferBridgeNFTData(
@@ -571,11 +587,13 @@ contract ERC721BridgeTest is Test {
             _MOCK_MESSAGE_ID
         );
 
-        erc721Bridge.submitCreateBridgeERC721(
-            destinationBlockchainID,
-            destinationBridgeAddress,
-            ERC721(nativeContractAddress)
-        );
+        erc721Bridge.submitCreateBridgeERC721({
+            destinationBlockchainID: destinationBlockchainID,
+            destinationBridgeAddress: destinationBridgeAddress,
+            nativeContract: nativeToken,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
+        });
     }
 
     // Calls bridgeERC721 of the test's ERC721Bridge instance to bridge the specified token to the
@@ -612,7 +630,9 @@ contract ERC721BridgeTest is Test {
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: nativeContractAddress,
             recipient: _DEFAULT_RECIPIENT,
-            tokenId: tokenId
+            tokenId: tokenId,
+            messageFeeAsset: address(0),
+            messageFeeAmount: 0
         });
     }
 

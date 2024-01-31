@@ -5,14 +5,17 @@
 
 pragma solidity 0.8.18;
 
-import {IERC721Bridge} from "./IERC721Bridge.sol";
 import {BridgeNFT} from "./BridgeNFT.sol";
+import {IERC721Bridge} from "./IERC721Bridge.sol";
 import {ITeleporterMessenger, TeleporterMessageInput, TeleporterFeeInfo} from "@teleporter/ITeleporterMessenger.sol";
 import {TeleporterOwnerUpgradeable} from "@teleporter/upgrades/TeleporterOwnerUpgradeable.sol";
 import {IWarpMessenger} from "@subnet-evm-contracts/interfaces/IWarpMessenger.sol";
 import {IERC721, ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "forge-std/console.sol";
+import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20TransferFrom} from "@teleporter/SafeERC20TransferFrom.sol";
+
 
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
@@ -30,6 +33,8 @@ contract ERC721Bridge is
     TeleporterOwnerUpgradeable,
     IERC721Receiver
 {
+    using SafeERC20 for IERC20;
+
     address public constant WARP_PRECOMPILE_ADDRESS =
         0x0200000000000000000000000000000000000005;
     bytes32 public immutable currentBlockchainID;
@@ -89,8 +94,19 @@ contract ERC721Bridge is
         address destinationBridgeAddress,
         address nftContractAddress,
         address recipient,
-        uint256 tokenId
+        uint256 tokenId,
+        address messageFeeAsset,
+        uint256 messageFeeAmount
     ) external nonReentrant {
+        require(
+            messageFeeAmount == 0,
+            "ERC721Bridge: fee not supported"
+        );
+
+        require(
+            messageFeeAsset == address(0),
+            "ERC721Bridge: fee asset not supported"
+        );
         // Bridging tokens within a single chain is not allowed.
         require(
             destinationBlockchainID != currentBlockchainID,
@@ -111,6 +127,19 @@ contract ERC721Bridge is
             "ERC721Bridge: zero destination bridge address"
         );
 
+        ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
+
+        // For non-zero fee amounts, first transfer the fee to this contract, and then
+        // allow the Teleporter contract to spend it.
+        uint256 adjustedFeeAmount;
+        if (messageFeeAmount > 0) {
+            adjustedFeeAmount =
+                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
+            IERC20(messageFeeAsset).safeIncreaseAllowance(
+                address(teleporterMessenger), adjustedFeeAmount
+            );
+        }
+
         // If the token to be bridged is a bridged NFT of this bridge,
         // then handle it by burning the NFT on this chain, and sending a message
         // back to the native chain.
@@ -121,9 +150,12 @@ contract ERC721Bridge is
                 _processBridgedTokenTransfer(
                     destinationBlockchainID,
                     destinationBridgeAddress,
+                    teleporterMessenger,
                     nftContractAddress,
                     tokenId,
-                    recipient
+                    recipient,
+                    messageFeeAsset,
+                    adjustedFeeAmount
                 );
         }
 
@@ -159,9 +191,12 @@ contract ERC721Bridge is
         _processNativeTokenTransfer(
             destinationBlockchainID,
             destinationBridgeAddress,
+            teleporterMessenger,
             nftContractAddress,
             recipient,
-            tokenId
+            tokenId,
+            messageFeeAsset,
+            adjustedFeeAmount
         );
     }
 
@@ -178,7 +213,9 @@ contract ERC721Bridge is
     function submitCreateBridgeERC721(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
-        ERC721 nftContract
+        ERC721 nativeContract,
+        address messageFeeAsset,
+        uint256 messageFeeAmount
     ) external nonReentrant {
         require(
             destinationBridgeAddress != address(0),
@@ -187,11 +224,22 @@ contract ERC721Bridge is
 
         ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
 
+        // For non-zero fee amounts, first transfer the fee to this contract, and then
+        // allow the Teleporter contract to spend it.
+        uint256 adjustedFeeAmount;
+        if (messageFeeAmount > 0) {
+            adjustedFeeAmount =
+                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
+            IERC20(messageFeeAsset).safeIncreaseAllowance(
+                address(teleporterMessenger), adjustedFeeAmount
+            );
+        }
+
         // Create the calldata to create an instance of BridgeNFT contract on the destination chain.
         bytes memory messageData = encodeCreateBridgeNFTData(
-            address(nftContract),
-            nftContract.name(),
-            nftContract.symbol()
+            address(nativeContract),
+            nativeContract.name(),
+            nativeContract.symbol()
         );
 
         // Send Teleporter message.
@@ -200,8 +248,8 @@ contract ERC721Bridge is
                 destinationBlockchainID: destinationBlockchainID,
                 destinationAddress: destinationBridgeAddress,
                 feeInfo: TeleporterFeeInfo({
-                    feeTokenAddress: address(0),
-                    amount: 0
+                    feeTokenAddress: messageFeeAsset,
+                    amount: adjustedFeeAmount
                 }),
                 requiredGasLimit: CREATE_BRIDGE_TOKENS_REQUIRED_GAS,
                 allowedRelayerAddresses: new address[](0),
@@ -212,12 +260,12 @@ contract ERC721Bridge is
         // Update the mapping to keep track of submitted create bridge token requests
         submittedBridgeNFTCreations[destinationBlockchainID][
             destinationBridgeAddress
-        ][address(nftContract)] = true;
+        ][address(nativeContract)] = true;
 
         emit SubmitCreateBridgeNFT({
             destinationBlockchainID: destinationBlockchainID,
             destinationBridgeAddress: destinationBridgeAddress,
-            nativeContractAddress: address(nftContract),
+            nativeContractAddress: address(nativeContract),
             teleporterMessageID: messageID
         });
     }
@@ -230,12 +278,13 @@ contract ERC721Bridge is
     function _processNativeTokenTransfer(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
+        ITeleporterMessenger teleporterMessenger,
         address nativeContractAddress,
         address recipient,
-        uint256 tokenId
+        uint256 tokenId,
+        address messageFeeAsset,
+        uint256 messageFeeAmount
     ) private {
-        ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
-
         bytes memory messageData = encodeMintBridgeNFTData(
             nativeContractAddress,
             recipient,
@@ -247,8 +296,8 @@ contract ERC721Bridge is
                 destinationBlockchainID: destinationBlockchainID,
                 destinationAddress: destinationBridgeAddress,
                 feeInfo: TeleporterFeeInfo({
-                    feeTokenAddress: address(0),
-                    amount: 0
+                    feeTokenAddress: messageFeeAsset,
+                    amount: messageFeeAmount
                 }),
                 requiredGasLimit: MINT_BRIDGE_TOKENS_REQUIRED_GAS,
                 allowedRelayerAddresses: new address[](0),
@@ -309,19 +358,21 @@ contract ERC721Bridge is
     function _processBridgedTokenTransfer(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
+        ITeleporterMessenger teleporterMessenger,
         address bridgedNFTContractAddress,
         uint256 tokenId,
-        address recipient
+        address recipient,
+        address messageFeeAsset,
+        uint256 messageFeeAmount
     ) private {
-        ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
         // Burn the wrapped tokens to be bridged.
         // The bridge amount is the total amount minus the original fee amount. Even if the adjusted fee amount
         // is less than the original fee amount, the original amount is the portion that is spent out of the total
         // amount. We know that the burnFrom call will decrease the total supply by bridgeAmount because the
         // bridgeToken contract was deployed by this contract itself and does not implement "fee on burn" functionality.
-
         BridgeNFT bridgeNTF = BridgeNFT(bridgedNFTContractAddress);
         bridgeNTF.burn(tokenId);
+
         // If the destination chain ID is the native chain ID for the wrapped token, the bridge address must also match.
         // This is because you are not allowed to bridge a token within its native chain.
         bytes32 nativeBlockchainID = bridgeNTF.nativeBlockchainID();
@@ -355,8 +406,8 @@ contract ERC721Bridge is
                 destinationBlockchainID: nativeBlockchainID,
                 destinationAddress: nativeBridgeAddress,
                 feeInfo: TeleporterFeeInfo({
-                    feeTokenAddress: address(0),
-                    amount: 0
+                    feeTokenAddress: messageFeeAsset,
+                    amount: messageFeeAmount
                 }),
                 requiredGasLimit: TRANSFER_BRIDGE_TOKENS_REQUIRED_GAS,
                 allowedRelayerAddresses: new address[](0),
