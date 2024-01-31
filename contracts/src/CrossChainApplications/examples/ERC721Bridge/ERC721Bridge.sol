@@ -151,7 +151,6 @@ contract ERC721Bridge is
         // Check that the token ID is owned by the sender
         require(tokenOwner == msg.sender, "ERC721Bridge: invalid token ID");
 
-        console.log("Owner of token: %s", tokenOwner);
         // Transfer and lock NFT into the bridge contract
 
         IERC721(nftContractAddress).safeTransferFrom(
@@ -160,7 +159,6 @@ contract ERC721Bridge is
             tokenId
         );
 
-        console.log("new owner of token: %s", IERC721(nftContractAddress).ownerOf(tokenId));
         // Mark token as locked
         // May be unnecessary, remove?
         bridgedTokens[nftContractAddress][tokenId] = true;
@@ -525,7 +523,6 @@ contract ERC721Bridge is
 
         BridgeNFT bridgeNTF = BridgeNFT(bridgedNFTContractAddress);
         bridgeNTF.burn(tokenId);
-
         // If the destination chain ID is the native chain ID for the wrapped token, the bridge address must also match.
         // This is because you are not allowed to bridge a token within its native chain.
         bytes32 nativeBlockchainID = bridgeNTF.nativeBlockchainID();
@@ -546,7 +543,7 @@ contract ERC721Bridge is
         // Send a message to the native chain and bridge of the wrapped asset that was burned.
         // The message includes the destination chain ID  and bridge contract, which will differ from the native
         // ones in the event that the tokens are being bridge from one non-native chain to another with two hops.
-        bytes memory messageData = encodeTransferBridgeTokensData({
+        bytes memory messageData = encodeTransferBridgeNFTData({
             destinationBlockchainID: destinationBlockchainID,
             destinationBridgeAddress: destinationBridgeAddress,
             nativeContractAddress: bridgeNTF.nativeAsset(),
@@ -567,6 +564,7 @@ contract ERC721Bridge is
                 message: messageData
             })
         );
+
         emit BridgedNFT({
             tokenContractAddress: bridgedNFTContractAddress,
             destinationBlockchainID: destinationBlockchainID,
@@ -580,7 +578,7 @@ contract ERC721Bridge is
     /**
      * @dev Encodes the parameters for the Transfer action to be decoded and executed on the destination.
      */
-    function encodeTransferBridgeTokensData(
+    function encodeTransferBridgeNFTData(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         address nativeContractAddress,

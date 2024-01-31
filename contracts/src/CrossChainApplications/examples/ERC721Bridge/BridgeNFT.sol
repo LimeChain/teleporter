@@ -47,19 +47,8 @@ contract BridgeNFT is ERC721, ERC721Burnable {
         _mint(account, tokenId);
     }
 
-    /**
-     * @dev Transfers NFT to another account if called by original `bridgeContract`.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public virtual override {
+    function burn(uint256 tokenId) public virtual override {
         require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
-        super.transferFrom(from, to, tokenId);
-    }
-
-    function _baseURI() internal view virtual override returns (string memory) {
-        return baseTokenUri;
+       _burn(tokenId);
     }
 }

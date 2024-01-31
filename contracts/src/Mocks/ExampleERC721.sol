@@ -13,16 +13,16 @@ pragma solidity 0.8.18;
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 
-contract UnitTestMockERC721 is ERC721, ERC721Burnable {
+contract ExampleERC721 is ERC721, ERC721Burnable {
     string private constant _TOKEN_NAME = "Mock Token";
     string private constant _TOKEN_SYMBOL = "EXMP";
     string private constant _TOKEN_URI = "https://example.com/ipfs/";
 
     constructor() ERC721(_TOKEN_NAME, _TOKEN_SYMBOL) {}
 
-    function mint(address reciepient, uint256 tokenId) external {
+    function mint(uint256 tokenId) external {
         require(_ownerOf(tokenId) == address(0), "Token already minted");
-        _mint(reciepient, tokenId);
+        _mint(msg.sender, tokenId);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
