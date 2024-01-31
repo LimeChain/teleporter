@@ -28,7 +28,7 @@ interface IERC721Bridge {
     /**
      * @dev Emitted when tokens are locked in this bridge contract to be bridged to another chain.
      */
-    event BridgedNFT(
+    event BridgeToken(
         address indexed tokenContractAddress,
         bytes32 indexed destinationBlockchainID,
         bytes32 indexed teleporterMessageID,
@@ -63,11 +63,11 @@ interface IERC721Bridge {
     event MintBridgeNFT(address indexed contractAddress, address recipient, uint256 tokenId);
 
     /**
-     * @dev Transfers ERC20 tokens to another chain.
+     * @dev Transfers ERC721 token to another chain.
      *
      * This can be wrapping, unwrapping, and transferring a wrapped token between two non-native chains.
      */
-    function bridgeERC721(
+    function bridgeToken(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         address tokenContractAddress,

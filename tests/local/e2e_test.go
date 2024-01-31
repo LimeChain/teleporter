@@ -59,7 +59,7 @@ var _ = ginkgo.Describe("[Teleporter integration tests]", func() {
 	// Cross-chain application tests
 
 	ginkgo.It("Send native NFT from subnet A to B and back", func() {
-		flows.ERC721NativeTokenToBridge(LocalNetworkInstance)
+		flows.ERC721NativeTokenBridge(LocalNetworkInstance)
 	})
 	ginkgo.It("Send native tokens from subnet A to B and back", func() {
 		flows.NativeTokenBridge(LocalNetworkInstance)

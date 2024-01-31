@@ -37,16 +37,11 @@ contract ERC721Bridge is
     uint256 public constant MINT_BRIDGE_TOKENS_REQUIRED_GAS = 200_000;
     uint256 public constant TRANSFER_BRIDGE_TOKENS_REQUIRED_GAS = 300_000;
 
-    // Mapping to keep track of bridged tokenIds
-    // MAYBE UNNECESSARY???
-    mapping(address nativeNFTContractAddress => mapping(uint256 tokenId => bool locked))
-        public bridgedTokens;
-
     // Mapping to keep track of submitted create bridge token requests
-    mapping(bytes32 destinationBlockchainID => mapping(address destinationBridgeAddress => mapping(address nftContract => bool submitted)))
+    mapping(bytes32 destinationBlockchainID => mapping(address destinationBridgeAddress => mapping(address erc721Contract => bool submitted)))
         public submittedBridgeNFTCreations;
 
-    // Set of bridge nfts created by this bridge instance.
+    // Set of BridgeNFT contracts created by this ERC721Bridge instance.
     mapping(address bridgeNFT => bool bridgeTokenExists)
         public bridgedNFTContracts;
 
@@ -66,6 +61,7 @@ contract ERC721Bridge is
             .getBlockchainID();
     }
 
+    // Required in order to be able to hold ERC721 tokens in this contract.
     function onERC721Received(
         address,
         address,
@@ -76,10 +72,7 @@ contract ERC721Bridge is
     }
 
     /**
-     * @dev See {IERC721Bridge-bridgeERC721}.
-     *
-     * This function is called by the bridge contract on the source chain to lock tokens in this contract
-     * and mint bridge tokens on this chain.
+     * @dev See {IERC721Bridge-bridgeToken}.
      *
      * Requirements:
      *
@@ -88,8 +81,10 @@ contract ERC721Bridge is
      * - `destinationBridgeAddress` cannot be the zero address.
      * - `nftContractAddress` must be a valid ERC721 contract.
      * - `tokenId` must be a valid token ID for the ERC721 contract.
+     *
+     * Emits a {BridgeToken} event.
      */
-    function bridgeERC721(
+    function bridgeToken(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         address nftContractAddress,
@@ -116,14 +111,14 @@ contract ERC721Bridge is
             "ERC721Bridge: zero destination bridge address"
         );
 
-        // If the token to be bridged is an existing bridged NFT of this bridge,
+        // If the token to be bridged is a bridged NFT of this bridge,
         // then handle it by burning the NFT on this chain, and sending a message
         // back to the native chain.
         // Otherwise, handle it by locking the NFT in this bridge instance,
         // and sending a message to the destination to mint the equivalent NFT on the destination chain.
         if (bridgedNFTContracts[nftContractAddress]) {
             return
-                _processBridgedNftTransfer(
+                _processBridgedTokenTransfer(
                     destinationBlockchainID,
                     destinationBridgeAddress,
                     nftContractAddress,
@@ -132,7 +127,9 @@ contract ERC721Bridge is
                 );
         }
 
-        // Check if requests to create a BridgeNFT contract on the destination chain have been submitted
+        // Check if requests to create a BridgeNFT contract on the destination chain has been submitted.
+        // This does not guarantee that the BridgeNFT contract has been created on the destination chain,
+        // due to different factors preventing the message from being delivered, or the contract creation.
         require(
             submittedBridgeNFTCreations[destinationBlockchainID][
                 destinationBridgeAddress
@@ -148,21 +145,17 @@ contract ERC721Bridge is
             "ERC721Bridge: token already bridged"
         );
 
-        // Check that the token ID is owned by the sender
+        // Check that the message sender is the owner of the token.
         require(tokenOwner == msg.sender, "ERC721Bridge: invalid token ID");
 
-        // Transfer and lock NFT into the bridge contract
-
+        // Lock the NFT by transferring it to this contract.
         IERC721(nftContractAddress).safeTransferFrom(
             msg.sender,
             address(this),
             tokenId
         );
 
-        // Mark token as locked
-        // May be unnecessary, remove?
-        bridgedTokens[nftContractAddress][tokenId] = true;
-
+        // Send a message to the destination chain and bridge to mint the equivalent NFT on the destination chain.
         _processNativeTokenTransfer(
             destinationBlockchainID,
             destinationBridgeAddress,
@@ -194,7 +187,7 @@ contract ERC721Bridge is
 
         ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
 
-        // Create the calldata to create the bridge token on the destination chain.
+        // Create the calldata to create an instance of BridgeNFT contract on the destination chain.
         bytes memory messageData = encodeCreateBridgeNFTData(
             address(nftContract),
             nftContract.name(),
@@ -216,6 +209,7 @@ contract ERC721Bridge is
             })
         );
 
+        // Update the mapping to keep track of submitted create bridge token requests
         submittedBridgeNFTCreations[destinationBlockchainID][
             destinationBridgeAddress
         ][address(nftContract)] = true;
@@ -228,6 +222,11 @@ contract ERC721Bridge is
         });
     }
 
+    /**
+     * @dev prepares the calldata and sends teleporter message to mint the equivalent NFT on the destination chain.
+     *
+     * Emits a {BridgeToken} event.
+     */
     function _processNativeTokenTransfer(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
@@ -237,7 +236,6 @@ contract ERC721Bridge is
     ) private {
         ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
 
-        // Send Teleporter message.
         bytes memory messageData = encodeMintBridgeNFTData(
             nativeContractAddress,
             recipient,
@@ -258,7 +256,7 @@ contract ERC721Bridge is
             })
         );
 
-        emit BridgedNFT({
+        emit BridgeToken({
             tokenContractAddress: nativeContractAddress,
             destinationBlockchainID: destinationBlockchainID,
             teleporterMessageID: messageID,
@@ -276,238 +274,39 @@ contract ERC721Bridge is
         address recipient,
         uint256 tokenId
     ) public pure returns (bytes memory) {
-        // ABI encode the Mint action and corresponding parameters for the mintBridgeTokens
-        // call to to be decoded and executed on the destination.
         bytes memory paramsData = abi.encode(
             nativeContractAddress,
             recipient,
             tokenId
         );
+
         return abi.encode(BridgeAction.Mint, paramsData);
     }
 
     /**
-     * @dev Encodes the parameters for the Create action to be decoded and executed on the destination.
+     * @dev Encodes the parameters for creating a BridgeNFT instance on the destination chain.
      */
     function encodeCreateBridgeNFTData(
         address nativeContractAddress,
         string memory nativeName,
         string memory nativeSymbol
     ) public pure returns (bytes memory) {
-        // ABI encode the Create action and corresponding parameters for the createBridgeToken
-        // call to to be decoded and executed on the destination.
         bytes memory paramsData = abi.encode(
             nativeContractAddress,
             nativeName,
             nativeSymbol
         );
+
         return abi.encode(BridgeAction.Create, paramsData);
     }
 
     /**
-     * @dev See {TeleporterUpgradeable-receiveTeleporterMessage}.
-     *
-     * Receives a Teleporter message and routes to the appropriate internal function call.
-     */
-    function _receiveTeleporterMessage(
-        bytes32 sourceBlockchainID,
-        address originSenderAddress,
-        bytes memory message
-    ) internal override {
-        // Decode the payload to recover the action and corresponding function parameters
-        (BridgeAction action, bytes memory actionData) = abi.decode(
-            message,
-            (BridgeAction, bytes)
-        );
-
-        // Route to the appropriate function.
-        if (action == BridgeAction.Create) {
-            (
-                address nativeContractAddress,
-                string memory nativeName,
-                string memory nativeSymbol
-            ) = abi.decode(actionData, (address, string, string));
-            _createBridgeToken({
-                nativeBlockchainID: sourceBlockchainID,
-                nativeBridgeAddress: originSenderAddress,
-                nativeContractAddress: nativeContractAddress,
-                nativeName: nativeName,
-                nativeSymbol: nativeSymbol
-            });
-        } else if (action == BridgeAction.Mint) {
-            (
-                address nativeContractAddress,
-                address recipient,
-                uint256 tokenId
-            ) = abi.decode(actionData, (address, address, uint256));
-            _mintBridgeToken(
-                sourceBlockchainID,
-                originSenderAddress,
-                nativeContractAddress,
-                recipient,
-                tokenId
-            );
-        } else if (action == BridgeAction.Transfer) {
-            (
-                bytes32 destinationBlockchainID,
-                address destinationBridgeAddress,
-                address nativeContractAddress,
-                address recipient,
-                uint256 tokenId
-            ) = abi.decode(
-                    actionData,
-                    (bytes32, address, address, address, uint256)
-                );
-            _transferBridgeToken(
-                destinationBlockchainID,
-                destinationBridgeAddress,
-                nativeContractAddress,
-                recipient,
-                tokenId
-            );
-        } else {
-            revert("ERC721Bridge: invalid action");
-        }
-    }
-
-    /**
-     * @dev Teleporter message receiver for creating a new bridge token on this chain.
-     *
-     * Emits a {CreateBridgeToken} event.
-     *
-     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
-     * called by the Teleporter Messenger.
-     */
-    function _createBridgeToken(
-        bytes32 nativeBlockchainID,
-        address nativeBridgeAddress,
-        address nativeContractAddress,
-        string memory nativeName,
-        string memory nativeSymbol
-    ) private {
-        // Check that the bridge token doesn't already exist.
-        require(
-            nativeToBridgedNFT[nativeBlockchainID][nativeBridgeAddress][
-                nativeContractAddress
-            ] == address(0),
-            "ERC721Bridge: bridge token already exists"
-        );
-
-        address bridgeNFTAddress = address(
-            new BridgeNFT({
-                sourceBlockchainID: nativeBlockchainID,
-                sourceBridge: nativeBridgeAddress,
-                sourceAsset: nativeContractAddress,
-                tokenName: nativeName,
-                tokenSymbol: nativeSymbol
-            })
-        );
-
-        bridgedNFTContracts[bridgeNFTAddress] = true;
-        nativeToBridgedNFT[nativeBlockchainID][nativeBridgeAddress][
-            nativeContractAddress
-        ] = bridgeNFTAddress;
-
-        emit CreateBridgeNFT(
-            nativeBlockchainID,
-            nativeBridgeAddress,
-            nativeContractAddress,
-            bridgeNFTAddress
-        );
-    }
-
-    /**
-     * @dev Teleporter message receiver for minting of an existing bridge token on this chain.
-     *
-     * Emits a {MintBridgeTokens} event.
-     *
-     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
-     * called by the Teleporter Messenger.
-     */
-    function _mintBridgeToken(
-        bytes32 nativeBlockchainID,
-        address nativeBridgeAddress,
-        address nativeContractAddress,
-        address recipient,
-        uint256 tokenId
-    ) private {
-        // The recipient cannot be the zero address.
-        require(
-            recipient != address(0),
-            "ERC721Bridge: zero recipient address"
-        );
-
-        // Check that a bridge token exists for this native asset.
-        // If not, one needs to be created by the delivery of a "createBridgeToken" message first
-        // before this mint can be processed. Once the bridge token is create, this message
-        // could then be retried to mint the tokens.
-        address bridgeTokenAddress = nativeToBridgedNFT[nativeBlockchainID][
-            nativeBridgeAddress
-        ][nativeContractAddress];
-
-        require(
-            bridgeTokenAddress != address(0),
-            "ERC721Bridge: bridge token does not exist"
-        );
-
-        // Mint the wrapped tokens.
-        BridgeNFT(bridgeTokenAddress).mint(recipient, tokenId);
-        emit MintBridgeNFT(bridgeTokenAddress, recipient, tokenId);
-    }
-
-    /**
-     * @dev Teleporter message receiver for handling bridge tokens transfers back from another chain
-     * and optionally routing them to a different third chain.
-     *
-     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
-     * called by the Teleporter Messenger.
-     */
-    function _transferBridgeToken(
-        bytes32 destinationBlockchainID,
-        address destinationBridgeAddress,
-        address nativeContractAddress,
-        address recipient,
-        uint256 tokenId
-    ) private {
-        // Ensure that the destination blockchain ID is the current blockchain ID. No hops are supported at this time
-        require(
-            destinationBlockchainID == currentBlockchainID,
-            "ERC721Bridge: invalid destination blockchain ID"
-        );
-        // Neither the recipient nor the destination bridge can be the zero address.
-        require(
-            recipient != address(0),
-            "ERC721Bridge: zero recipient address"
-        );
-        require(
-            destinationBridgeAddress != address(0),
-            "ERC721Bridge: zero destination bridge address"
-        );
-
-        require(
-            destinationBridgeAddress == address(this),
-            "ERC721Bridge: invalid destination bridge address"
-        );
-
-        // Transfer tokens to the recipient.
-        IERC721(nativeContractAddress).safeTransferFrom(
-            address(this),
-            recipient,
-            tokenId
-        );
-
-        // Mark token as unlocked
-        bridgedTokens[nativeContractAddress][tokenId] = false;
-    }
-
-    /**
-     * @dev Processes a wrapped token transfer by burning the tokens and sending a Teleporter message
-     * to the native chain and bridge of the wrapped asset that was burned.
+     * @dev Process transfer of a bridged NFT to the native chain.
      *
      * It is the caller's responsibility to ensure that the wrapped token contract is supported by this bridge instance.
      * Emits a {BridgeTokens} event.
      */
-    function _processBridgedNftTransfer(
+    function _processBridgedTokenTransfer(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         address bridgedNFTContractAddress,
@@ -565,7 +364,7 @@ contract ERC721Bridge is
             })
         );
 
-        emit BridgedNFT({
+        emit BridgeToken({
             tokenContractAddress: bridgedNFTContractAddress,
             destinationBlockchainID: destinationBlockchainID,
             teleporterMessageID: messageID,
@@ -596,5 +395,199 @@ contract ERC721Bridge is
             tokenId
         );
         return abi.encode(BridgeAction.Transfer, paramsData);
+    }
+
+    // TELEPORTER MESSAGE RECIEVER IMPLEMENTATION
+
+    /**
+     * @dev See {TeleporterUpgradeable-receiveTeleporterMessage}.
+     *
+     * Receives a Teleporter message and routes to the appropriate internal function call.
+     */
+    function _receiveTeleporterMessage(
+        bytes32 sourceBlockchainID,
+        address originSenderAddress,
+        bytes memory message
+    ) internal override {
+        // Decode the payload to recover the action and corresponding function parameters
+        (BridgeAction action, bytes memory actionData) = abi.decode(
+            message,
+            (BridgeAction, bytes)
+        );
+
+        // Route to the appropriate function.
+        if (action == BridgeAction.Create) {
+            (
+                address nativeContractAddress,
+                string memory nativeName,
+                string memory nativeSymbol
+            ) = abi.decode(actionData, (address, string, string));
+            _createBridgeNFTContract({
+                nativeBlockchainID: sourceBlockchainID,
+                nativeBridgeAddress: originSenderAddress,
+                nativeContractAddress: nativeContractAddress,
+                nativeName: nativeName,
+                nativeSymbol: nativeSymbol
+            });
+        } else if (action == BridgeAction.Mint) {
+            (
+                address nativeContractAddress,
+                address recipient,
+                uint256 tokenId
+            ) = abi.decode(actionData, (address, address, uint256));
+            _mintBridgeNFT(
+                sourceBlockchainID,
+                originSenderAddress,
+                nativeContractAddress,
+                recipient,
+                tokenId
+            );
+        } else if (action == BridgeAction.Transfer) {
+            (
+                bytes32 destinationBlockchainID,
+                address destinationBridgeAddress,
+                address nativeContractAddress,
+                address recipient,
+                uint256 tokenId
+            ) = abi.decode(
+                    actionData,
+                    (bytes32, address, address, address, uint256)
+                );
+            _transferBridgeNFT(
+                destinationBlockchainID,
+                destinationBridgeAddress,
+                nativeContractAddress,
+                recipient,
+                tokenId
+            );
+        } else {
+            revert("ERC721Bridge: invalid action");
+        }
+    }
+
+    /**
+     * @dev Teleporter message receiver for creating a new bridge token on this chain.
+     *
+     * Emits a {CreateBridgeNFT} event.
+     *
+     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
+     * called by the Teleporter Messenger.
+     */
+    function _createBridgeNFTContract(
+        bytes32 nativeBlockchainID,
+        address nativeBridgeAddress,
+        address nativeContractAddress,
+        string memory nativeName,
+        string memory nativeSymbol
+    ) private {
+        // Check that the bridge token doesn't already exist.
+        require(
+            nativeToBridgedNFT[nativeBlockchainID][nativeBridgeAddress][
+                nativeContractAddress
+            ] == address(0),
+            "ERC721Bridge: bridge token already exists"
+        );
+
+        address bridgeERC721Address = address(
+            new BridgeNFT({
+                sourceBlockchainID: nativeBlockchainID,
+                sourceBridge: nativeBridgeAddress,
+                sourceAsset: nativeContractAddress,
+                tokenName: nativeName,
+                tokenSymbol: nativeSymbol
+            })
+        );
+
+        bridgedNFTContracts[bridgeERC721Address] = true;
+        nativeToBridgedNFT[nativeBlockchainID][nativeBridgeAddress][
+            nativeContractAddress
+        ] = bridgeERC721Address;
+
+        emit CreateBridgeNFT(
+            nativeBlockchainID,
+            nativeBridgeAddress,
+            nativeContractAddress,
+            bridgeERC721Address
+        );
+    }
+
+    /**
+     * @dev Teleporter message receiver for minting an NFT from the specified instance of the BridgeNFT contract.
+     *
+     * Emits a {MintBridgeNFT} event.
+     *
+     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
+     * called by the Teleporter Messenger.
+     */
+    function _mintBridgeNFT(
+        bytes32 nativeBlockchainID,
+        address nativeBridgeAddress,
+        address nativeContractAddress,
+        address recipient,
+        uint256 tokenId
+    ) private {
+        // The recipient cannot be the zero address.
+        require(
+            recipient != address(0),
+            "ERC721Bridge: zero recipient address"
+        );
+
+        // Check that a bridge token exists for this native asset.
+        // If not, one needs to be created by the delivery of a "createBridgeToken" message first
+        // before this mint can be processed. Once the bridge token is create, this message
+        // could then be retried to mint the tokens.
+        address bridgeTokenAddress = nativeToBridgedNFT[nativeBlockchainID][
+            nativeBridgeAddress
+        ][nativeContractAddress];
+
+        require(
+            bridgeTokenAddress != address(0),
+            "ERC721Bridge: bridge token does not exist"
+        );
+
+        // Mint the bridged NFT.
+        BridgeNFT(bridgeTokenAddress).mint(recipient, tokenId);
+        emit MintBridgeNFT(bridgeTokenAddress, recipient, tokenId);
+    }
+
+    /**
+     * @dev Teleporter message receiver for handling transfering bridged NFTs back to the native chain.
+     *
+     * Note: This function is only called within `receiveTeleporterMessage`, which can only be
+     * called by the Teleporter Messenger.
+     */
+    function _transferBridgeNFT(
+        bytes32 destinationBlockchainID,
+        address destinationBridgeAddress,
+        address nativeContractAddress,
+        address recipient,
+        uint256 tokenId
+    ) private {
+        // Ensure that the destination blockchain ID is the current blockchain ID. No hops are supported at this time
+        require(
+            destinationBlockchainID == currentBlockchainID,
+            "ERC721Bridge: invalid destination blockchain ID"
+        );
+        // Neither the recipient nor the destination bridge can be the zero address.
+        require(
+            recipient != address(0),
+            "ERC721Bridge: zero recipient address"
+        );
+        require(
+            destinationBridgeAddress != address(0),
+            "ERC721Bridge: zero destination bridge address"
+        );
+
+        require(
+            destinationBridgeAddress == address(this),
+            "ERC721Bridge: invalid destination bridge address"
+        );
+
+        // Transfer tokens to the recipient.
+        IERC721(nativeContractAddress).safeTransferFrom(
+            address(this),
+            recipient,
+            tokenId
+        );
     }
 }

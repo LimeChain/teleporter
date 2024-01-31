@@ -38,7 +38,7 @@ contract ERC721BridgeTest is Test {
     ERC721Bridge public erc721Bridge;
     ExampleERC721 public mockERC721;
 
-    event BridgedNFT(
+    event BridgeToken(
         address indexed tokenContractAddress,
         bytes32 indexed destinationBlockchainID,
         bytes32 indexed teleporterMessageID,
@@ -103,7 +103,7 @@ contract ERC721BridgeTest is Test {
         vm.expectRevert(
             _formatERC721BridgeErrorMessage("cannot bridge to same chain")
         );
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _MOCK_BLOCKCHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
@@ -116,7 +116,7 @@ contract ERC721BridgeTest is Test {
         vm.expectRevert(
             _formatERC721BridgeErrorMessage("zero destination bridge address")
         );
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: address(0),
             nftContractAddress: address(mockERC721),
@@ -129,7 +129,7 @@ contract ERC721BridgeTest is Test {
         vm.expectRevert(
             _formatERC721BridgeErrorMessage("zero NFT contract address")
         );
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(0),
@@ -142,7 +142,7 @@ contract ERC721BridgeTest is Test {
         vm.expectRevert(
             _formatERC721BridgeErrorMessage("zero recipient address")
         );
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
@@ -155,7 +155,7 @@ contract ERC721BridgeTest is Test {
         vm.expectRevert(
             _formatERC721BridgeErrorMessage("invalid bridge NFT contract")
         );
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
@@ -185,7 +185,7 @@ contract ERC721BridgeTest is Test {
             _formatERC721BridgeErrorMessage("token already bridged")
         );
         vm.prank(_DEFAULT_RECIPIENT);
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
@@ -209,7 +209,7 @@ contract ERC721BridgeTest is Test {
 
         vm.expectRevert(_formatERC721BridgeErrorMessage("invalid token ID"));
         vm.prank(_DEFAULT_RECIPIENT);
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: address(mockERC721),
@@ -347,7 +347,7 @@ contract ERC721BridgeTest is Test {
         );
 
         vm.expectEmit(true, true, true, true, address(erc721Bridge));
-        emit BridgedNFT(
+        emit BridgeToken(
             bridgeTokenAddress,
             _DEFAULT_OTHER_CHAIN_ID,
             _MOCK_MESSAGE_ID,
@@ -355,7 +355,7 @@ contract ERC721BridgeTest is Test {
             _DEFAULT_RECIPIENT,
             tokenId
         );
-        erc721Bridge.bridgeERC721(
+        erc721Bridge.bridgeToken(
             _DEFAULT_OTHER_CHAIN_ID,
             _DEFAULT_OTHER_BRIDGE_ADDRESS,
             bridgeTokenAddress,
@@ -597,7 +597,7 @@ contract ERC721BridgeTest is Test {
         );
 
         vm.expectEmit(true, true, true, true, address(erc721Bridge));
-        emit BridgedNFT(
+        emit BridgeToken(
             nativeContractAddress,
             destinationBlockchainID,
             _MOCK_MESSAGE_ID,
@@ -607,7 +607,7 @@ contract ERC721BridgeTest is Test {
         );
 
         vm.prank(_DEFAULT_RECIPIENT);
-        erc721Bridge.bridgeERC721({
+        erc721Bridge.bridgeToken({
             destinationBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             destinationBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nftContractAddress: nativeContractAddress,

@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func ERC721NativeTokenToBridge(network interfaces.Network) {
+func ERC721NativeTokenBridge(network interfaces.Network) {
 	sourceSubnet := network.GetPrimaryNetworkInfo()
 	_, destSubnet := utils.GetTwoSubnets(network)
 	teleporterContractAddress := network.GetTeleporterContractAddress()
@@ -278,7 +278,7 @@ func bridgeERC721(
 	opts, err := bind.NewKeyedTransactorWithChainID(fundedKey, source.EVMChainID)
 	Expect(err).Should(BeNil())
 
-	tx, err := transactor.BridgeERC721(
+	tx, err := transactor.BridgeToken(
 		opts,
 		destinationBlockchainID,
 		destinationBridgeAddress,
