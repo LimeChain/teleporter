@@ -98,15 +98,6 @@ contract ERC721Bridge is
         address messageFeeAsset,
         uint256 messageFeeAmount
     ) external nonReentrant {
-        require(
-            messageFeeAmount == 0,
-            "ERC721Bridge: fee not supported"
-        );
-
-        require(
-            messageFeeAsset == address(0),
-            "ERC721Bridge: fee asset not supported"
-        );
         // Bridging tokens within a single chain is not allowed.
         require(
             destinationBlockchainID != currentBlockchainID,
@@ -129,16 +120,11 @@ contract ERC721Bridge is
 
         ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
 
-        // For non-zero fee amounts, first transfer the fee to this contract, and then
-        // allow the Teleporter contract to spend it.
-        uint256 adjustedFeeAmount;
-        if (messageFeeAmount > 0) {
-            adjustedFeeAmount =
-                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
-            IERC20(messageFeeAsset).safeIncreaseAllowance(
-                address(teleporterMessenger), adjustedFeeAmount
-            );
-        }
+        uint256 adjustedFeeAmount = _adjustFee(
+            teleporterMessenger,
+            messageFeeAsset,
+            messageFeeAmount
+        );
 
         // If the token to be bridged is a bridged NFT of this bridge,
         // then handle it by burning the NFT on this chain, and sending a message
@@ -224,16 +210,11 @@ contract ERC721Bridge is
 
         ITeleporterMessenger teleporterMessenger = _getTeleporterMessenger();
 
-        // For non-zero fee amounts, first transfer the fee to this contract, and then
-        // allow the Teleporter contract to spend it.
-        uint256 adjustedFeeAmount;
-        if (messageFeeAmount > 0) {
-            adjustedFeeAmount =
-                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
-            IERC20(messageFeeAsset).safeIncreaseAllowance(
-                address(teleporterMessenger), adjustedFeeAmount
-            );
-        }
+        uint256 adjustedFeeAmount = _adjustFee(
+            teleporterMessenger,
+            messageFeeAsset,
+            messageFeeAmount
+        );
 
         // Create the calldata to create an instance of BridgeNFT contract on the destination chain.
         bytes memory messageData = encodeCreateBridgeNFTData(
@@ -268,6 +249,27 @@ contract ERC721Bridge is
             nativeContractAddress: address(nativeContract),
             teleporterMessageID: messageID
         });
+    }
+
+    function _adjustFee(
+        ITeleporterMessenger teleporterMessenger,
+        address messageFeeAsset,
+        uint256 messageFeeAmount
+    ) private returns (uint256 adjustedFeeAmount) {
+        // For non-zero fee amounts, first transfer the fee to this contract, and then
+        // allow the Teleporter contract to spend it.
+        if (messageFeeAmount > 0) {
+            require(
+                messageFeeAsset != address(0),
+                "ERC721Bridge: zero fee asset address"
+            );
+
+            adjustedFeeAmount =
+                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
+            IERC20(messageFeeAsset).safeIncreaseAllowance(
+                address(teleporterMessenger), adjustedFeeAmount
+            );
+        }
     }
 
     /**
