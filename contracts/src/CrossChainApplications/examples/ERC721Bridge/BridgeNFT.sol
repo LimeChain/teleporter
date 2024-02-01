@@ -6,8 +6,6 @@
 pragma solidity 0.8.18;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
  * DO NOT USE THIS CODE IN PRODUCTION.
@@ -16,7 +14,7 @@ import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ER
 /**
  * @dev BridgeNFT is an ERC721 token contract that is associated with a specific native chain bridge and asset, and is only mintable by the bridge contract on this chain.
  */
-contract BridgeNFT is ERC721, ERC721Burnable {
+contract BridgeNFT is ERC721 {
     address public immutable bridgeContract;
     bytes32 public immutable nativeBlockchainID;
     address public immutable nativeBridge;
@@ -47,8 +45,8 @@ contract BridgeNFT is ERC721, ERC721Burnable {
         _mint(account, tokenId);
     }
 
-    function burn(uint256 tokenId) public virtual override {
+    function burn(uint256 tokenId) external {
         require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
-       _burn(tokenId);
+        _burn(tokenId);
     }
 }

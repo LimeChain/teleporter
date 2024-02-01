@@ -239,7 +239,7 @@ func SubmitCreateBridgeERC721(
 	opts, err := bind.NewKeyedTransactorWithChainID(fundedKey, source.EVMChainID)
 	Expect(err).Should(BeNil())
 
-	tx, err := transactor.SubmitCreateBridgeERC721(
+	tx, err := transactor.SubmitCreateBridgeNFT(
 		opts,
 		destinationBlockchainID,
 		destinationBridgeAddress,

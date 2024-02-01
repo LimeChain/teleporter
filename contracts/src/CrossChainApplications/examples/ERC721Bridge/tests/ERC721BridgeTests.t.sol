@@ -587,7 +587,7 @@ contract ERC721BridgeTest is Test {
             _MOCK_MESSAGE_ID
         );
 
-        erc721Bridge.submitCreateBridgeERC721({
+        erc721Bridge.submitCreateBridgeNFT({
             destinationBlockchainID: destinationBlockchainID,
             destinationBridgeAddress: destinationBridgeAddress,
             nativeContract: nativeToken,

@@ -187,16 +187,16 @@ contract ERC721Bridge is
     }
 
     /**
-     * @dev See {IERC721Bridge-submitCreateBridgeToken}.
+     * @dev See {IERC721Bridge-submitCreateBridgeNFT}.
      *
-     * We allow for `submitCreateBridgeToken` to be called multiple times with the same bridge and token
+     * We allow for `submitCreateBridgeNFT` to be called multiple times with the same bridge and token
      * information because a previous message may have been dropped or otherwise selectively not delivered.
      * If the bridge token already exists on the destination, we are sending a message that will
      * simply have no effect on the destination.
      *
      * Emits a {SubmitCreateBridgeToken} event.
      */
-    function submitCreateBridgeERC721(
+    function submitCreateBridgeNFT(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         ERC721 nativeContract,
@@ -417,14 +417,14 @@ contract ERC721Bridge is
             })
         );
 
-        emit BridgeToken({
-            tokenContractAddress: bridgedNFTContractAddress,
-            destinationBlockchainID: destinationBlockchainID,
-            teleporterMessageID: messageID,
-            destinationBridgeAddress: destinationBridgeAddress,
-            recipient: recipient,
-            tokenId: tokenId
-        });
+        emit BridgeToken(
+            bridgedNFTContractAddress,
+            destinationBlockchainID,
+            messageID,
+            destinationBridgeAddress,
+            recipient,
+            tokenId
+        );
     }
 
     /**
@@ -439,7 +439,6 @@ contract ERC721Bridge is
     ) public pure returns (bytes memory) {
         // ABI encode the Transfer action and corresponding parameters for the transferBridgeToken
         // call to to be decoded and executed on the destination.
-        // solhint-disable-next-line func-named-parameters
         bytes memory paramsData = abi.encode(
             destinationBlockchainID,
             destinationBridgeAddress,
@@ -447,6 +446,7 @@ contract ERC721Bridge is
             recipient,
             tokenId
         );
+
         return abi.encode(BridgeAction.Transfer, paramsData);
     }
 
@@ -475,13 +475,13 @@ contract ERC721Bridge is
                 string memory nativeName,
                 string memory nativeSymbol
             ) = abi.decode(actionData, (address, string, string));
-            _createBridgeNFTContract({
-                nativeBlockchainID: sourceBlockchainID,
-                nativeBridgeAddress: originSenderAddress,
-                nativeContractAddress: nativeContractAddress,
-                nativeName: nativeName,
-                nativeSymbol: nativeSymbol
-            });
+            _createBridgeNFTContract(
+                sourceBlockchainID,
+                originSenderAddress,
+                nativeContractAddress,
+                nativeName,
+                nativeSymbol
+            );
         } else if (action == BridgeAction.Mint) {
             (
                 address nativeContractAddress,
@@ -519,7 +519,7 @@ contract ERC721Bridge is
     }
 
     /**
-     * @dev Teleporter message receiver for creating a new bridge token on this chain.
+     * @dev Teleporter message receiver for creating a new BridgeNFT contract on this chain.
      *
      * Emits a {CreateBridgeNFT} event.
      *
@@ -565,7 +565,7 @@ contract ERC721Bridge is
     }
 
     /**
-     * @dev Teleporter message receiver for minting an NFT from the specified instance of the BridgeNFT contract.
+     * @dev Teleporter message receiver for minting a tokenId from the specified instance of the BridgeNFT contract.
      *
      * Emits a {MintBridgeNFT} event.
      *
@@ -604,7 +604,7 @@ contract ERC721Bridge is
     }
 
     /**
-     * @dev Teleporter message receiver for handling transfering bridged NFTs back to the native chain.
+     * @dev Teleporter message receiver for handling transfering bridged tokenId back to the native chain.
      *
      * Note: This function is only called within `receiveTeleporterMessage`, which can only be
      * called by the Teleporter Messenger.

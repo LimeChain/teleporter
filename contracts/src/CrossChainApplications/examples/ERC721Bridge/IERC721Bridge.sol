@@ -80,7 +80,7 @@ interface IERC721Bridge {
     /**
      * @dev Creates a new bridge token on another chain.
      */
-    function submitCreateBridgeERC721(
+    function submitCreateBridgeNFT(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
         ERC721 nativeContract,
