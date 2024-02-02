@@ -19,7 +19,7 @@ contract BridgeNFT is ERC721 {
     bytes32 public immutable nativeBlockchainID;
     address public immutable nativeBridge;
     address public immutable nativeAsset;
-    string public baseTokenUri = "https://example.com/ipfs/";
+    string public nativeTokenURI;
 
     /**
      * @dev Initializes a BridgeNFT instance.
@@ -29,12 +29,14 @@ contract BridgeNFT is ERC721 {
         address sourceBridge,
         address sourceAsset,
         string memory tokenName,
-        string memory tokenSymbol
+        string memory tokenSymbol,
+        string memory tokenURI
     ) ERC721(tokenName, tokenSymbol) {
         bridgeContract = msg.sender;
         nativeBlockchainID = sourceBlockchainID;
         nativeBridge = sourceBridge;
         nativeAsset = sourceAsset;
+        nativeTokenURI = tokenURI;
     }
 
     /**
@@ -48,5 +50,9 @@ contract BridgeNFT is ERC721 {
     function burn(uint256 tokenId) external {
         require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
         _burn(tokenId);
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return nativeTokenURI;
     }
 }

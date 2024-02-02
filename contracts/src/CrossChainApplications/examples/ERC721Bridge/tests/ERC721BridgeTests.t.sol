@@ -6,7 +6,7 @@
 pragma solidity 0.8.18;
 
 import {Test} from "forge-std/Test.sol";
-import {BridgeNFT, ERC721Bridge, ERC721, IERC721, TeleporterMessageInput, TeleporterFeeInfo, IWarpMessenger, ITeleporterMessenger} from "../ERC721Bridge.sol";
+import {BridgeNFT, ERC721Bridge, ExampleERC721, IERC721, TeleporterMessageInput, TeleporterFeeInfo, IWarpMessenger, ITeleporterMessenger} from "../ERC721Bridge.sol";
 import {TeleporterRegistry} from "@teleporter/upgrades/TeleporterRegistry.sol";
 import {ExampleERC721} from "@mocks/ExampleERC721.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -31,7 +31,7 @@ contract ERC721BridgeTest is Test {
         0xd54e3E251b9b0EEd3ed70A858e927bbC2659587d;
     string private constant _DEFAULT_TOKEN_NAME = "Test Token";
     string private constant _DEFAULT_SYMBOL = "TSTTK";
-    string private constant _DEFAULT_TOKEN_URI = "https://example.com/ipfs";
+    string private constant _DEFAULT_TOKEN_URI = "https://example.com/ipfs/";
     address private constant _DEFAULT_RECIPIENT =
         0xa4CEE7d1aF6aDdDD33E3b1cC680AB84fdf1b6d1d;
 
@@ -277,6 +277,7 @@ contract ERC721BridgeTest is Test {
             nativeContractAddress: address(mockERC721),
             nativeName: _DEFAULT_TOKEN_NAME,
             nativeSymbol: _DEFAULT_SYMBOL,
+            nativeTokenURI: _DEFAULT_TOKEN_URI,
             contractNonce: 1
         });
 
@@ -296,7 +297,7 @@ contract ERC721BridgeTest is Test {
             message
         );
 
-        // Check the values and balance of the newly created ERC20.
+        // Check the values of the newly created ERC721.
         BridgeNFT newBridgeNFT = BridgeNFT(bridgeTokenAddress);
         assertEq(_DEFAULT_TOKEN_NAME, newBridgeNFT.name());
         assertEq(_DEFAULT_SYMBOL, newBridgeNFT.symbol());
@@ -311,12 +312,14 @@ contract ERC721BridgeTest is Test {
     function testNewBridgeTokenBurnOnTransfer() public {
         uint256 tokenId = 1;
 
+        // Setup BridgeNFT contract and mint the token to the default recipient on the bridged chain.
         address bridgeTokenAddress = _setUpBridgeERC721({
             nativeBlockchainID: _DEFAULT_OTHER_CHAIN_ID,
             nativeBridgeAddress: _DEFAULT_OTHER_BRIDGE_ADDRESS,
             nativeContractAddress: address(mockERC721),
             nativeName: _DEFAULT_TOKEN_NAME,
             nativeSymbol: _DEFAULT_SYMBOL,
+            nativeTokenURI: _DEFAULT_TOKEN_URI,
             contractNonce: 1
         });
 
@@ -341,7 +344,7 @@ contract ERC721BridgeTest is Test {
             BridgeNFT(bridgeTokenAddress).ownerOf(tokenId)
         );
 
-        vm.prank(_DEFAULT_RECIPIENT);
+        // Call bridgeToken on the ERC721Bridge contract to burn and transfer the token on the bridged chain.
         vm.expectCall(
             bridgeTokenAddress,
             abi.encodeWithSignature("burn(uint256)", tokenId)
@@ -353,13 +356,14 @@ contract ERC721BridgeTest is Test {
             _DEFAULT_RECIPIENT,
             tokenId
         );
+
+        // Expect a Transfer event to be emitted from the BridgeNFT contract.
         vm.expectEmit(true, true, true, true, bridgeTokenAddress);
         emit Transfer(
             _DEFAULT_RECIPIENT,
             address(0),
             tokenId
         );
-
         vm.expectEmit(true, true, true, true, address(erc721Bridge));
         emit BridgeToken(
             bridgeTokenAddress,
@@ -369,6 +373,8 @@ contract ERC721BridgeTest is Test {
             _DEFAULT_RECIPIENT,
             tokenId
         );
+
+        vm.prank(_DEFAULT_RECIPIENT);
         erc721Bridge.bridgeToken(
             _DEFAULT_OTHER_CHAIN_ID,
             _DEFAULT_OTHER_BRIDGE_ADDRESS,
@@ -379,26 +385,12 @@ contract ERC721BridgeTest is Test {
             0
         );
 
-        // bytes memory transferMessage = erc721Bridge.encodeTransferBridgeNFTData(
-        //     _MOCK_BLOCKCHAIN_ID,
-        //     address(erc721Bridge),
-        //     address(mockERC721),
-        //     _DEFAULT_RECIPIENT,
-        //     tokenId
-        // );
-
-        // vm.prank(MOCK_TELEPORTER_MESSENGER_ADDRESS);
-        // _setUpExpectedTransferFromCall(
-        //     bridgeTokenAddress,
-        //     _DEFAULT_RECIPIENT,
-        //     _DEFAULT_OTHER_BRIDGE_ADDRESS,
-        //     tokenId
-        // );
-        // erc721Bridge.receiveTeleporterMessage(
-        //     _DEFAULT_OTHER_CHAIN_ID,
-        //     _DEFAULT_OTHER_BRIDGE_ADDRESS,
-        //     message
-        // );
+        // Check the NFT was transferred to the zero address on the bridged chain.
+        // ownerOf will revert if the token does not exist.
+        vm.expectRevert(
+            "ERC721: invalid token ID"
+        );
+        BridgeNFT(bridgeTokenAddress).ownerOf(tokenId);
     }
 
     function testUnlockTokenOnTransfer() public {
@@ -543,7 +535,7 @@ contract ERC721BridgeTest is Test {
         address destinationBridgeAddress,
         address nativeContractAddress
     ) private {
-        ERC721 nativeToken = ERC721(nativeContractAddress);
+        ExampleERC721 nativeToken = ExampleERC721(nativeContractAddress);
 
         TeleporterMessageInput
             memory expectedMessageInput = TeleporterMessageInput({
@@ -559,7 +551,8 @@ contract ERC721BridgeTest is Test {
                 message: erc721Bridge.encodeCreateBridgeNFTData(
                     nativeContractAddress,
                     nativeToken.name(),
-                    nativeToken.symbol()
+                    nativeToken.symbol(),
+                    nativeToken.baseUri()
                 )
             });
 
@@ -726,6 +719,7 @@ contract ERC721BridgeTest is Test {
         address nativeContractAddress,
         string memory nativeName,
         string memory nativeSymbol,
+        string memory nativeTokenURI,
         uint8 contractNonce
     ) private returns (address) {
         address expectedBridgeTokenAddress = _deriveExpectedContractAddress(
@@ -735,7 +729,8 @@ contract ERC721BridgeTest is Test {
         bytes memory message = erc721Bridge.encodeCreateBridgeNFTData(
             nativeContractAddress,
             nativeName,
-            nativeSymbol
+            nativeSymbol,
+            nativeTokenURI
         );
         vm.prank(MOCK_TELEPORTER_MESSENGER_ADDRESS);
         vm.expectEmit(true, true, true, true, address(erc721Bridge));
@@ -755,7 +750,7 @@ contract ERC721BridgeTest is Test {
     }
 
     function _setUpMockERC721ContractValues(address nftContract) private {
-        ERC721 token = ERC721(nftContract);
+        ExampleERC721 token = ExampleERC721(nftContract);
         vm.mockCall(
             nftContract,
             abi.encodeCall(token.name, ()),

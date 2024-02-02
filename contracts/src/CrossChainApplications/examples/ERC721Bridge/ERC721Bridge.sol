@@ -6,16 +6,16 @@
 pragma solidity 0.8.18;
 
 import {BridgeNFT} from "./BridgeNFT.sol";
+import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
 import {IERC721Bridge} from "./IERC721Bridge.sol";
 import {ITeleporterMessenger, TeleporterMessageInput, TeleporterFeeInfo} from "@teleporter/ITeleporterMessenger.sol";
 import {TeleporterOwnerUpgradeable} from "@teleporter/upgrades/TeleporterOwnerUpgradeable.sol";
 import {IWarpMessenger} from "@subnet-evm-contracts/interfaces/IWarpMessenger.sol";
-import {IERC721, ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeERC20TransferFrom} from "@teleporter/SafeERC20TransferFrom.sol";
-
 
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
@@ -199,7 +199,7 @@ contract ERC721Bridge is
     function submitCreateBridgeNFT(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
-        ERC721 nativeContract,
+        ExampleERC721 nativeContract,
         address messageFeeAsset,
         uint256 messageFeeAmount
     ) external nonReentrant {
@@ -220,7 +220,8 @@ contract ERC721Bridge is
         bytes memory messageData = encodeCreateBridgeNFTData(
             address(nativeContract),
             nativeContract.name(),
-            nativeContract.symbol()
+            nativeContract.symbol(),
+            nativeContract.baseUri()
         );
 
         // Send Teleporter message.
@@ -243,12 +244,12 @@ contract ERC721Bridge is
             destinationBridgeAddress
         ][address(nativeContract)] = true;
 
-        emit SubmitCreateBridgeNFT({
-            destinationBlockchainID: destinationBlockchainID,
-            destinationBridgeAddress: destinationBridgeAddress,
-            nativeContractAddress: address(nativeContract),
-            teleporterMessageID: messageID
-        });
+        emit SubmitCreateBridgeNFT(
+            destinationBlockchainID,
+            destinationBridgeAddress,
+            address(nativeContract),
+            messageID
+        );
     }
 
     function _adjustFee(
@@ -264,10 +265,13 @@ contract ERC721Bridge is
                 "ERC721Bridge: zero fee asset address"
             );
 
-            adjustedFeeAmount =
-                SafeERC20TransferFrom.safeTransferFrom(IERC20(messageFeeAsset), messageFeeAmount);
+            adjustedFeeAmount = SafeERC20TransferFrom.safeTransferFrom(
+                IERC20(messageFeeAsset),
+                messageFeeAmount
+            );
             IERC20(messageFeeAsset).safeIncreaseAllowance(
-                address(teleporterMessenger), adjustedFeeAmount
+                address(teleporterMessenger),
+                adjustedFeeAmount
             );
         }
     }
@@ -307,14 +311,14 @@ contract ERC721Bridge is
             })
         );
 
-        emit BridgeToken({
-            tokenContractAddress: nativeContractAddress,
-            destinationBlockchainID: destinationBlockchainID,
-            teleporterMessageID: messageID,
-            destinationBridgeAddress: destinationBridgeAddress,
-            recipient: recipient,
-            tokenId: tokenId
-        });
+        emit BridgeToken(
+            nativeContractAddress,
+            destinationBlockchainID,
+            messageID,
+            destinationBridgeAddress,
+            recipient,
+            tokenId
+        );
     }
 
     /**
@@ -340,12 +344,14 @@ contract ERC721Bridge is
     function encodeCreateBridgeNFTData(
         address nativeContractAddress,
         string memory nativeName,
-        string memory nativeSymbol
+        string memory nativeSymbol,
+        string memory nativeTokenURI
     ) public pure returns (bytes memory) {
         bytes memory paramsData = abi.encode(
             nativeContractAddress,
             nativeName,
-            nativeSymbol
+            nativeSymbol,
+            nativeTokenURI
         );
 
         return abi.encode(BridgeAction.Create, paramsData);
@@ -395,13 +401,13 @@ contract ERC721Bridge is
         // Send a message to the native chain and bridge of the wrapped asset that was burned.
         // The message includes the destination chain ID  and bridge contract, which will differ from the native
         // ones in the event that the tokens are being bridge from one non-native chain to another with two hops.
-        bytes memory messageData = encodeTransferBridgeNFTData({
-            destinationBlockchainID: destinationBlockchainID,
-            destinationBridgeAddress: destinationBridgeAddress,
-            nativeContractAddress: bridgeNTF.nativeAsset(),
-            recipient: recipient,
-            tokenId: tokenId
-        });
+        bytes memory messageData = encodeTransferBridgeNFTData(
+            destinationBlockchainID,
+            destinationBridgeAddress,
+            bridgeNTF.nativeAsset(),
+            recipient,
+            tokenId
+        );
 
         bytes32 messageID = teleporterMessenger.sendCrossChainMessage(
             TeleporterMessageInput({
@@ -473,14 +479,16 @@ contract ERC721Bridge is
             (
                 address nativeContractAddress,
                 string memory nativeName,
-                string memory nativeSymbol
-            ) = abi.decode(actionData, (address, string, string));
+                string memory nativeSymbol,
+                string memory nativeTokenURI
+            ) = abi.decode(actionData, (address, string, string, string));
             _createBridgeNFTContract(
                 sourceBlockchainID,
                 originSenderAddress,
                 nativeContractAddress,
                 nativeName,
-                nativeSymbol
+                nativeSymbol,
+                nativeTokenURI
             );
         } else if (action == BridgeAction.Mint) {
             (
@@ -531,7 +539,8 @@ contract ERC721Bridge is
         address nativeBridgeAddress,
         address nativeContractAddress,
         string memory nativeName,
-        string memory nativeSymbol
+        string memory nativeSymbol,
+        string memory nativeTokenURI
     ) private {
         // Check that the bridge token doesn't already exist.
         require(
@@ -547,7 +556,8 @@ contract ERC721Bridge is
                 sourceBridge: nativeBridgeAddress,
                 sourceAsset: nativeContractAddress,
                 tokenName: nativeName,
-                tokenSymbol: nativeSymbol
+                tokenSymbol: nativeSymbol,
+                tokenURI: nativeTokenURI
             })
         );
 

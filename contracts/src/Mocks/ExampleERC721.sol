@@ -28,4 +28,8 @@ contract ExampleERC721 is ERC721, ERC721Burnable {
     function _baseURI() internal view virtual override returns (string memory) {
         return _TOKEN_URI;
     }
+
+    function baseUri() external pure returns (string memory) {
+        return _TOKEN_URI;
+    }
 }

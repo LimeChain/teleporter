@@ -5,7 +5,7 @@
 
 pragma solidity 0.8.18;
 
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
 
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
@@ -83,7 +83,7 @@ interface IERC721Bridge {
     function submitCreateBridgeNFT(
         bytes32 destinationBlockchainID,
         address destinationBridgeAddress,
-        ERC721 nativeContract,
+        ExampleERC721 nativeContract,
         address feeTokenAddress,
         uint256 feeAmount
     ) external;
