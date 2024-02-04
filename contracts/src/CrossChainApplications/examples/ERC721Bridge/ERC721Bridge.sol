@@ -10,11 +10,12 @@ import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
 import {IERC721Bridge} from "./IERC721Bridge.sol";
 import {ITeleporterMessenger, TeleporterMessageInput, TeleporterFeeInfo} from "@teleporter/ITeleporterMessenger.sol";
 import {TeleporterOwnerUpgradeable} from "@teleporter/upgrades/TeleporterOwnerUpgradeable.sol";
-import {IWarpMessenger} from "@subnet-evm-contracts/interfaces/IWarpMessenger.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IWarpMessenger} from
+    "@avalabs/subnet-evm-contracts@1.2.0/contracts/interfaces/IWarpMessenger.sol";
+import {IERC721} from "@openzeppelin/contracts@4.8.1/token/ERC721/ERC721.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts@4.8.1/token/ERC721/IERC721Receiver.sol";
+import {IERC20, ERC20} from "@openzeppelin/contracts@4.8.1/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts@4.8.1/token/ERC20/utils/SafeERC20.sol";
 import {SafeERC20TransferFrom} from "@teleporter/SafeERC20TransferFrom.sol";
 
 /**
@@ -54,6 +55,10 @@ contract ERC721Bridge is
     // (nativeBlockchainID, nativeBridgeAddress, nativeTokenAddress) -> bridgeTokenAddress
     mapping(bytes32 nativeBlockchainID => mapping(address nativeBridgeAddress => mapping(address nativeTokenAddress => address bridgeNFTAddress)))
         public nativeToBridgedNFT;
+
+
+    mapping(address bridgeNft => mapping(uint256 tokenId => bool bridged))
+        public bridgedTokens;
 
     /**
      * @dev Initializes the Teleporter Messenger used for sending and receiving messages,
@@ -373,6 +378,10 @@ contract ERC721Bridge is
         address messageFeeAsset,
         uint256 messageFeeAmount
     ) private {
+        require(
+            bridgedTokens[bridgedNFTContractAddress][tokenId],
+            "ERC721Bridge: invalid token ID"
+        );
         // Burn the wrapped tokens to be bridged.
         // The bridge amount is the total amount minus the original fee amount. Even if the adjusted fee amount
         // is less than the original fee amount, the original amount is the portion that is spent out of the total
@@ -380,6 +389,7 @@ contract ERC721Bridge is
         // bridgeToken contract was deployed by this contract itself and does not implement "fee on burn" functionality.
         BridgeNFT bridgeNTF = BridgeNFT(bridgedNFTContractAddress);
         bridgeNTF.burn(tokenId);
+        delete bridgedTokens[bridgedNFTContractAddress][tokenId];
 
         // If the destination chain ID is the native chain ID for the wrapped token, the bridge address must also match.
         // This is because you are not allowed to bridge a token within its native chain.
@@ -599,18 +609,21 @@ contract ERC721Bridge is
         // If not, one needs to be created by the delivery of a "createBridgeToken" message first
         // before this mint can be processed. Once the bridge token is create, this message
         // could then be retried to mint the tokens.
-        address bridgeTokenAddress = nativeToBridgedNFT[nativeBlockchainID][
+        address bridgeNFTAddress = nativeToBridgedNFT[nativeBlockchainID][
             nativeBridgeAddress
         ][nativeContractAddress];
 
         require(
-            bridgeTokenAddress != address(0),
+            bridgeNFTAddress != address(0),
             "ERC721Bridge: bridge token does not exist"
         );
 
         // Mint the bridged NFT.
-        BridgeNFT(bridgeTokenAddress).mint(recipient, tokenId);
-        emit MintBridgeNFT(bridgeTokenAddress, recipient, tokenId);
+        BridgeNFT(bridgeNFTAddress).mint(recipient, tokenId);
+
+        bridgedTokens[bridgeNFTAddress][tokenId] = true;
+
+        emit MintBridgeNFT(bridgeNFTAddress, recipient, tokenId);
     }
 
     /**

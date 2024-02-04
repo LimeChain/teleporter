@@ -10,8 +10,8 @@ pragma solidity 0.8.18;
  * DO NOT USE THIS CODE IN PRODUCTION.
  */
 
-import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
+import {ERC721} from "@openzeppelin/contracts@4.8.1/token/ERC721/ERC721.sol";
+import {ERC721Burnable} from "@openzeppelin/contracts@4.8.1/token/ERC721/extensions/ERC721Burnable.sol";
 
 contract ExampleERC721 is ERC721, ERC721Burnable {
     string private constant _TOKEN_NAME = "Mock Token";
