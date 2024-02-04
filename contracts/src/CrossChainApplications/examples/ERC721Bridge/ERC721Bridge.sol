@@ -10,8 +10,7 @@ import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
 import {IERC721Bridge} from "./IERC721Bridge.sol";
 import {ITeleporterMessenger, TeleporterMessageInput, TeleporterFeeInfo} from "@teleporter/ITeleporterMessenger.sol";
 import {TeleporterOwnerUpgradeable} from "@teleporter/upgrades/TeleporterOwnerUpgradeable.sol";
-import {IWarpMessenger} from
-    "@avalabs/subnet-evm-contracts@1.2.0/contracts/interfaces/IWarpMessenger.sol";
+import {IWarpMessenger} from "@avalabs/subnet-evm-contracts@1.2.0/contracts/interfaces/IWarpMessenger.sol";
 import {IERC721} from "@openzeppelin/contracts@4.8.1/token/ERC721/ERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts@4.8.1/token/ERC721/IERC721Receiver.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts@4.8.1/token/ERC20/ERC20.sol";
@@ -55,7 +54,6 @@ contract ERC721Bridge is
     // (nativeBlockchainID, nativeBridgeAddress, nativeTokenAddress) -> bridgeTokenAddress
     mapping(bytes32 nativeBlockchainID => mapping(address nativeBridgeAddress => mapping(address nativeTokenAddress => address bridgeNFTAddress)))
         public nativeToBridgedNFT;
-
 
     mapping(address bridgeNft => mapping(uint256 tokenId => bool bridged))
         public bridgedTokens;

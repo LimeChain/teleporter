@@ -60,7 +60,11 @@ interface IERC721Bridge {
     /**
      * @dev Emitted when minting bridge tokens.
      */
-    event MintBridgeNFT(address indexed contractAddress, address recipient, uint256 tokenId);
+    event MintBridgeNFT(
+        address indexed contractAddress,
+        address recipient,
+        uint256 tokenId
+    );
 
     /**
      * @dev Transfers ERC721 token to another chain.

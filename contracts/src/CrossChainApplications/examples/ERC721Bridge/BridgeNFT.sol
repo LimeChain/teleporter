@@ -6,6 +6,7 @@
 pragma solidity 0.8.18;
 
 import {ERC721} from "@openzeppelin/contracts@4.8.1/token/ERC721/ERC721.sol";
+
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
  * DO NOT USE THIS CODE IN PRODUCTION.
@@ -49,7 +50,10 @@ contract BridgeNFT is ERC721 {
 
     function burn(uint256 tokenId) external {
         require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
-        require(_isApprovedOrOwner(msg.sender, tokenId), "BridgeNFT: caller is not token owner or approved");
+        require(
+            _isApprovedOrOwner(msg.sender, tokenId),
+            "BridgeNFT: caller is not token owner or approved"
+        );
         _burn(tokenId);
     }
 

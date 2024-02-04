@@ -437,11 +437,7 @@ contract ERC721BridgeTest is Test {
         );
         // Expect a Transfer event to be emitted from the BridgeNFT contract.
         vm.expectEmit(true, true, true, true, bridgeNFTAddress);
-        emit Transfer(
-            _DEFAULT_RECIPIENT,
-            address(0),
-            tokenId
-        );
+        emit Transfer(_DEFAULT_RECIPIENT, address(0), tokenId);
         vm.expectEmit(true, true, true, true, address(erc721Bridge));
         emit BridgeToken(
             bridgeNFTAddress,
@@ -465,9 +461,7 @@ contract ERC721BridgeTest is Test {
 
         // Check the NFT was transferred to the zero address on the bridged chain.
         // ownerOf will revert if the token does not exist.
-        vm.expectRevert(
-            "ERC721: invalid token ID"
-        );
+        vm.expectRevert("ERC721: invalid token ID");
         BridgeNFT(bridgeNFTAddress).ownerOf(tokenId);
     }
 
@@ -763,7 +757,8 @@ contract ERC721BridgeTest is Test {
                     feeTokenAddress: address(0),
                     amount: 0
                 }),
-                requiredGasLimit: erc721Bridge.TRANSFER_BRIDGE_TOKENS_REQUIRED_GAS(),
+                requiredGasLimit: erc721Bridge
+                    .TRANSFER_BRIDGE_TOKENS_REQUIRED_GAS(),
                 allowedRelayerAddresses: new address[](0),
                 message: erc721Bridge.encodeTransferBridgeNFTData(
                     destinationBlockchainID,
