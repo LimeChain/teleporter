@@ -12,6 +12,8 @@ import {ERC721} from "@openzeppelin/contracts@4.8.1/token/ERC721/ERC721.sol";
  * DO NOT USE THIS CODE IN PRODUCTION.
  */
 
+error Unauthorized();
+
 /**
  * @dev BridgeNFT is an ERC721 token contract that is associated with a specific native chain bridge and asset, and is only mintable by the bridge contract on this chain.
  */
@@ -44,12 +46,13 @@ contract BridgeNFT is ERC721 {
      * @dev Mints tokens to `account` if called by original `bridgeContract`.
      */
     function mint(address account, uint256 tokenId) external {
-        require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
+        _authorize();
         _mint(account, tokenId);
     }
 
     function burn(uint256 tokenId) external {
-        require(msg.sender == bridgeContract, "BridgeNFT: unauthorized");
+        _authorize();
+
         require(
             _isApprovedOrOwner(msg.sender, tokenId),
             "BridgeNFT: caller is not token owner or approved"
@@ -59,5 +62,11 @@ contract BridgeNFT is ERC721 {
 
     function _baseURI() internal view virtual override returns (string memory) {
         return nativeTokenURI;
+    }
+
+    function _authorize() internal view {
+        if (msg.sender != bridgeContract) {
+            revert Unauthorized();
+        }
     }
 }

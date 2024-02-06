@@ -6,6 +6,7 @@
 pragma solidity 0.8.18;
 
 import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
+import {ITeleporterMessenger} from "@teleporter/ITeleporterMessenger.sol";
 
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
@@ -16,6 +17,60 @@ import {ExampleERC721} from "../../../Mocks/ExampleERC721.sol";
  * @dev Interface that describes functionalities for a cross-chain ERC20 bridge.
  */
 interface IERC721Bridge {
+    error InvalidBridgeAction();
+    error InvalidDestinationBlockchainId();
+    error InvalidDestinationBridgeAddress();
+    error InvalidTokenId();
+    error TokenContractAlreadyBridged();
+    error TokenContractNotBridged();
+    error ZeroTokenContractAddress();
+    error ZeroRecipientAddress();
+    error ZeroDestinationBridgeAddress();
+    error ZeroFeeAssetAddress();
+
+    struct BridgedTokenTransferInfo {
+        bytes32 destinationBlockchainID;
+        address destinationBridgeAddress;
+        ITeleporterMessenger teleporterMessenger;
+        address bridgedNFTContractAddress;
+        address recipient;
+        uint256 tokenId;
+        address messageFeeAsset;
+        uint256 messageFeeAmount;
+    }
+
+    struct NativeTokenTransferInfo {
+        bytes32 destinationBlockchainID;
+        address destinationBridgeAddress;
+        ITeleporterMessenger teleporterMessenger;
+        address nativeContractAddress;
+        address recipient;
+        uint256 tokenId;
+        address messageFeeAsset;
+        uint256 messageFeeAmount;
+    }
+
+    struct CreateBridgeNFTData {
+        address nativeContractAddress;
+        string nativeName;
+        string nativeSymbol;
+        string nativeTokenURI;
+    }
+
+    struct MintBridgeNFTData {
+        address nativeContractAddress;
+        address recipient;
+        uint256 tokenId;
+    }
+
+    struct TransferBridgeNFTData {
+        bytes32 destinationBlockchainID;
+        address destinationBridgeAddress;
+        address nativeContractAddress;
+        address recipient;
+        uint256 tokenId;
+    }
+
     /**
      * @dev Enum representing the action to take on receiving a Teleporter message.
      */
