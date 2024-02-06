@@ -32,3 +32,7 @@ An end-to-end test demonstrating the use of the generic ERC721 token bridge cont
 8. The NFT is transferred to the ERC721Bridge contract on subnet A and then a Teleporter message is sent to subnet B to mint the NFT to the user on the BridgeNFT contract on subnet B.
 9. The user on subnet B approves the BridgeNFT contract on subnet B as operator of the NFT.
 10. The user on subnet B calls `bridgeToken` on the BridgeNFT contract on subnet B to burn the NFT and bridge it to subnet A.
+
+## Local testing
+1. Run a local network following the instructions [here](/README.md#run-a-local-testnet-in-docker).
+2. An example workflow is provided via the [erc721_send_and_receive.sh](scripts/local/examples/basic_send_receive.sh) script.
