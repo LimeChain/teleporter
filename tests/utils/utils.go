@@ -15,10 +15,12 @@ import (
 	"time"
 
 	erc20bridge "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/ERC20Bridge/ERC20Bridge"
+	erc721bridge "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/ERC721Bridge/ERC721Bridge"
 	examplecrosschainmessenger "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/ExampleMessenger/ExampleCrossChainMessenger"
 	blockhashpublisher "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/VerifiedBlockHash/BlockHashPublisher"
 	blockhashreceiver "github.com/ava-labs/teleporter/abi-bindings/go/CrossChainApplications/examples/VerifiedBlockHash/BlockHashReceiver"
 	exampleerc20 "github.com/ava-labs/teleporter/abi-bindings/go/Mocks/ExampleERC20"
+	exampleerc721 "github.com/ava-labs/teleporter/abi-bindings/go/Mocks/ExampleERC721"
 	teleportermessenger "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/TeleporterMessenger"
 	teleporterregistry "github.com/ava-labs/teleporter/abi-bindings/go/Teleporter/upgrades/TeleporterRegistry"
 	deploymentUtils "github.com/ava-labs/teleporter/utils/deployment-utils"
@@ -770,6 +772,58 @@ func DeployExampleERC20(
 	return address, token
 }
 
+func DeployExampleERC721(
+	ctx context.Context,
+	senderKey *ecdsa.PrivateKey,
+	source interfaces.SubnetTestInfo,
+) (common.Address, *exampleerc721.ExampleERC721) {
+	opts, err := bind.NewKeyedTransactorWithChainID(senderKey, source.EVMChainID)
+	Expect(err).Should(BeNil())
+
+	// Deploy Mock ERC721 contract
+	address, tx, token, err := exampleerc721.DeployExampleERC721(opts, source.RPCClient)
+	Expect(err).Should(BeNil())
+	log.Info("Deployed Mock ERC721 contract", "address", address.Hex(), "txHash", tx.Hash().Hex())
+
+	// Wait for the transaction to be mined
+	WaitForTransactionSuccess(ctx, source, tx)
+
+	return address, token
+}
+
+func ERC721Mint(
+	ctx context.Context,
+	token *exampleerc721.ExampleERC721,
+	tokenId *big.Int,
+	source interfaces.SubnetTestInfo,
+	senderKey *ecdsa.PrivateKey,
+) {
+	opts, err := bind.NewKeyedTransactorWithChainID(senderKey, source.EVMChainID)
+	Expect(err).Should(BeNil())
+	tx, err := token.Mint(opts, tokenId)
+	Expect(err).Should(BeNil())
+	log.Info("Minted ERC721", "tokenId", tokenId, "txHash", tx.Hash().Hex())
+
+	WaitForTransactionSuccess(ctx, source, tx)
+}
+
+func ERC721Approve(
+	ctx context.Context,
+	token *exampleerc721.ExampleERC721,
+	operator common.Address,
+	tokenId *big.Int,
+	source interfaces.SubnetTestInfo,
+	senderKey *ecdsa.PrivateKey,
+) {
+	opts, err := bind.NewKeyedTransactorWithChainID(senderKey, source.EVMChainID)
+	Expect(err).Should(BeNil())
+	tx, err := token.Approve(opts, operator, tokenId)
+	Expect(err).Should(BeNil())
+	log.Info("Approved ERC721", "operator", operator.Hex(), "txHash", tx.Hash().Hex())
+
+	WaitForTransactionSuccess(ctx, source, tx)
+}
+
 func DeployExampleCrossChainMessenger(
 	ctx context.Context,
 	senderKey *ecdsa.PrivateKey,
@@ -807,6 +861,26 @@ func DeployERC20Bridge(
 	log.Info("Deployed ERC20 Bridge contract", "address", address.Hex(), "txHash", tx.Hash().Hex())
 
 	return address, erc20Bridge
+}
+
+func DeployERC721Bridge(
+	ctx context.Context,
+	senderKey *ecdsa.PrivateKey,
+	source interfaces.SubnetTestInfo,
+) (common.Address, *erc721bridge.ERC721Bridge) {
+	opts, err := bind.NewKeyedTransactorWithChainID(senderKey, source.EVMChainID)
+	Expect(err).Should(BeNil())
+	address, tx, erc721Bridge, err := erc721bridge.DeployERC721Bridge(
+		opts, source.RPCClient, source.TeleporterRegistryAddress,
+	)
+	Expect(err).Should(BeNil())
+
+	// Wait for the transaction to be mined
+	WaitForTransactionSuccess(ctx, source, tx)
+
+	log.Info("Deployed ERC721 Bridge contract", "address", address.Hex(), "txHash", tx.Hash().Hex())
+
+	return address, erc721Bridge
 }
 
 func DeployBlockHashPublisher(
