@@ -5,13 +5,21 @@ set -e # Stop on first error
 # Set up contracts
 cd contracts
 
-bridge_c_deploy_result=$(forge create --private-key $user_private_key src/CrossChainApplications/examples/ERC721Bridge/ERC721Bridge.sol:ERC721Bridge --constructor-args $c_chain_teleporter_registry_address --rpc-url $c_chain_rpc_url)
+bridge_c_deploy_result=$(forge create --private-key $user_private_key \
+    src/CrossChainApplications/examples/ERC721Bridge/ERC721Bridge.sol:ERC721Bridge \
+    --constructor-args $c_chain_teleporter_registry_address \
+    --rpc-url $c_chain_rpc_url)
 bridge_contract_address_c_chain=$(parseContractAddress "$bridge_c_deploy_result")
 
-bridge_a_deploy_result=$(forge create --private-key $user_private_key src/CrossChainApplications/examples/ERC721Bridge/ERC721Bridge.sol:ERC721Bridge --constructor-args $subnet_a_teleporter_registry_address --rpc-url $subnet_a_rpc_url)
+bridge_a_deploy_result=$(forge create --private-key $user_private_key \
+    src/CrossChainApplications/examples/ERC721Bridge/ERC721Bridge.sol:ERC721Bridge \
+    --constructor-args $subnet_a_teleporter_registry_address \
+    --rpc-url $subnet_a_rpc_url)
 bridge_contract_address_subnet_a=$(parseContractAddress "$bridge_a_deploy_result")
 
-erc721_deploy_result=$(forge create --private-key $user_private_key src/Mocks/ExampleERC721.sol:ExampleERC721 --rpc-url $c_chain_rpc_url)
+erc721_deploy_result=$(forge create --private-key $user_private_key \
+src/Mocks/ExampleERC721.sol:ExampleERC721 \
+--rpc-url $c_chain_rpc_url)
 erc721_contract_address_c_chain=$(parseContractAddress "$erc721_deploy_result")
 
 echo "ERC721Birdge contract deployed to $bridge_contract_address_c_chain on C-Chain"
